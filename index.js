@@ -37,9 +37,13 @@ async function run() {
     });
 
     // Cart Collection
-    app.post("api/v1/users/carts", async (req, res) => {
+    app.get("/api/v1/user/carts", async(req, res) => {
+      const result = await cartCollection.find().toArray()
+      res.send(result)
+    })
+    app.post("/api/v1/user/carts", async (req, res) => {
       const cartItem = req.body;
-      const result = await cartCollection.insertOne(cartCollection);
+      const result = await cartCollection.insertOne(cartItem);
       res.send(result);
     });
 
