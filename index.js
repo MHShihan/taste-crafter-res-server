@@ -1,10 +1,13 @@
 const express = require("express");
 const cors = require("cors");
+const jwt = require("jsonwebtoken");
 require("dotenv").config();
 const app = express();
 const port = process.env.PORT || 5000;
 
-//MiddleWares
+const secret = process.env.ACCESS_TOKEN_SECRET;
+
+//parsers
 app.use(cors());
 app.use(express.json());
 
@@ -27,8 +30,31 @@ const cartCollection = client.db("bistroDB").collection("carts");
 
 async function run() {
   try {
+    // JWT relate api
+    app.post("/api/v1/jwt/access-token", async (req, res) => {
+      const user = req.body;
+      const token = jwt.sign(user, secret, { expiresIn: "1h" });
+      res.send({ token });
+    });
+
+    // Middleware
+    const verifyToken = (req, res, next) => {
+      console.log("inside verify token ", req.headers.authorization);
+      if (!req.headers.authorization) {
+        return res.status(401).send({ message: "Unauthorized" });
+      }
+      const token = req.headers.authorization.split(" ")[1];
+      jwt.verify(token, secret, (err, decoded) => {
+        if (err) {
+          return res.status(401).send({ message: "Unauthorized" });
+        }
+        req.decoded = decoded;
+        next();
+      });
+    };
+
     // user related api
-    app.get("/api/v1/users", async (req, res) => {
+    app.get("/api/v1/users", verifyToken, async (req, res) => {
       const result = await userCollection.find().toArray();
       res.send(result);
     });
