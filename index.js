@@ -53,6 +53,21 @@ async function run() {
       });
     };
 
+    // Admin api
+    app.get("/api/v1/admin/:email", verifyToken, async (req, res) => {
+      const email = req.params.email;
+      if (email !== req.decoded.email) {
+        return res.status(403).send({ message: "forbidden access" });
+      }
+      const query = { email };
+      const user = await userCollection.findOne(query);
+      let admin = false;
+      if (user) {
+        admin = user?.role === "admin";
+      }
+      res.send({ admin });
+    });
+
     // user related api
     app.get("/api/v1/users", verifyToken, async (req, res) => {
       const result = await userCollection.find().toArray();
