@@ -33,7 +33,7 @@ async function run() {
     // JWT relate api
     app.post("/api/v1/jwt/access-token", async (req, res) => {
       const user = req.body;
-      const token = jwt.sign(user, secret, { expiresIn: "1h" });
+      const token = jwt.sign(user, secret, { expiresIn: "24h" });
       res.send({ token });
     });
 
@@ -144,6 +144,19 @@ async function run() {
       }
     );
 
+    app.delete(
+      "/api/v1/admin/deleteItem/:id",
+      verifyToken,
+      verifyAdmin,
+      async (req, res) => {
+        const id = req.params.id;
+        const query = { _id: new ObjectId(id) };
+        const result = await menuCollection.deleteOne(query);
+        res.send(result);
+      }
+    );
+
+    // Reviews related api
     app.get("/api/v1/reviews", async (req, res) => {
       const result = await reviewCollection.find().toArray();
       res.send(result);
