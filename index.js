@@ -144,6 +144,24 @@ async function run() {
       }
     );
 
+    app.patch(
+      "/api/v1/admin/menu/:id",
+      verifyToken,
+      verifyAdmin,
+      async (req, res) => {
+        const id = req.params.id;
+        const item = req.body;
+        const filter = { _id: new ObjectId(id) };
+        const updateDoc = {
+          $set: {
+            ...item,
+          },
+        };
+        const result = await menuCollection.updateOne(filter, updateDoc);
+        res.send(result);
+      }
+    );
+
     app.delete(
       "/api/v1/admin/deleteItem/:id",
       verifyToken,
@@ -155,6 +173,13 @@ async function run() {
         res.send(result);
       }
     );
+
+    app.get("/api/v1/admin/menu/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await menuCollection.findOne(query);
+      res.send(result);
+    });
 
     // Reviews related api
     app.get("/api/v1/reviews", async (req, res) => {
