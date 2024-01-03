@@ -39,7 +39,7 @@ async function run() {
 
     // Middleware
     const verifyToken = (req, res, next) => {
-      console.log("inside verify token ", req.headers.authorization);
+      // console.log("inside verify token ", req.headers.authorization);
       if (!req.headers.authorization) {
         return res.status(401).send({ message: "Unauthorized" });
       }
@@ -53,10 +53,21 @@ async function run() {
       });
     };
 
+    const verifyAdmin = async (req, res, next) => {
+      const email = req.decoded?.email;
+      const query = { email };
+      const user = await userCollection.findOne(query);
+      const isAdmin = user?.role === "admin";
+      if (!isAdmin) {
+        return res.status(403).send({ message: "forbidden access" });
+      }
+      next();
+    };
+
     // Admin api
     app.get("/api/v1/admin/:email", verifyToken, async (req, res) => {
       const email = req.params.email;
-      if (email !== req.decoded.email) {
+      if (email !== req.decoded?.email) {
         return res.status(403).send({ message: "forbidden access" });
       }
       const query = { email };
@@ -69,7 +80,7 @@ async function run() {
     });
 
     // user related api
-    app.get("/api/v1/users", verifyToken, async (req, res) => {
+    app.get("/api/v1/users", verifyToken, verifyAdmin, async (req, res) => {
       const result = await userCollection.find().toArray();
       res.send(result);
     });
@@ -85,30 +96,53 @@ async function run() {
       res.send(result);
     });
 
-    app.patch("/api/v1/admin/makeAdmin/:id", async (req, res) => {
-      const id = req.params.id;
-      const filter = { _id: new ObjectId(id) };
-      const updatedDoc = {
-        $set: {
-          role: "admin",
-        },
-      };
-      const result = await userCollection.updateOne(filter, updatedDoc);
-      res.send(result);
-    });
+    // Make user as an Admin
+    app.patch(
+      "/api/v1/admin/makeAdmin/:id",
+      verifyToken,
+      verifyAdmin,
+      async (req, res) => {
+        const id = req.params.id;
+        const filter = { _id: new ObjectId(id) };
+        const updatedDoc = {
+          $set: {
+            role: "admin",
+          },
+        };
+        const result = await userCollection.updateOne(filter, updatedDoc);
+        res.send(result);
+      }
+    );
 
-    app.delete("/api/v1/admin/deleteUsers/:id", async (req, res) => {
-      const id = req.params.id;
-      const query = { _id: new ObjectId(id) };
-      const result = await userCollection.deleteOne(query);
-      res.send(result);
-    });
+    // Delete User
+    app.delete(
+      "/api/v1/admin/deleteUsers/:id",
+      verifyToken,
+      verifyAdmin,
+      async (req, res) => {
+        const id = req.params.id;
+        const query = { _id: new ObjectId(id) };
+        const result = await userCollection.deleteOne(query);
+        res.send(result);
+      }
+    );
 
     // Menu related API
     app.get("/api/v1/menu", async (req, res) => {
       const result = await menuCollection.find().toArray();
       res.send(result);
     });
+
+    app.post(
+      "/api/v1/admin/menu",
+      verifyAdmin,
+      verifyAdmin,
+      async (req, res) => {
+        const menuItem = req.body;
+        const result = await menuCollection.insertOne(menuItem);
+        res.send(result);
+      }
+    );
 
     app.get("/api/v1/reviews", async (req, res) => {
       const result = await reviewCollection.find().toArray();
@@ -128,7 +162,7 @@ async function run() {
       res.send(result);
     });
 
-    app.delete("/api/v1/user/carts/:id", async (req, res) => {
+    app.delete("/api/v1/user/carts/:id", verifyToken, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await cartCollection.deleteOne(query);
