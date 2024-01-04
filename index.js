@@ -28,6 +28,7 @@ const userCollection = client.db("bistroDB").collection("users");
 const menuCollection = client.db("bistroDB").collection("menu");
 const reviewCollection = client.db("bistroDB").collection("reviews");
 const cartCollection = client.db("bistroDB").collection("carts");
+const paymentCollection = client.db("bistroDB").collection("payments");
 
 async function run() {
   try {
@@ -227,6 +228,39 @@ async function run() {
         });
       } catch (error) {
         console.log(error);
+      }
+    });
+
+    // Payment related api
+    app.get("/api/v1/user/payment/:email", verifyToken, async (req, res) => {
+      const queryEmail = req.params.email;
+      const decodedEmail = req.decoded?.email;
+
+      if (queryEmail !== decodedEmail) {
+        return res.status(403).send({ message: "Forbidden access" });
+      }
+      const query = { email: queryEmail };
+      const result = await paymentCollection.find(query).toArray();
+      res.send(result);
+    });
+
+    app.post("/api/v1/user/payment", async (req, res) => {
+      try {
+        const paymentInfo = req.body;
+        const paymentResult = await paymentCollection.insertOne(paymentInfo);
+
+        // Delete each item from the cart
+        const query = {
+          _id: {
+            $in: paymentInfo?.cartIds?.map((id) => new ObjectId(id)),
+          },
+        };
+
+        const deleteResult = await cartCollection.deleteMany(query);
+
+        res.send({ paymentResult, deleteResult });
+      } catch (err) {
+        console.log("Payment error", err);
       }
     });
 
