@@ -291,6 +291,60 @@ async function run() {
       }
     );
 
+    // Using aggregate pipeline
+    app.get(
+      "/api/v1/order-stats",
+      verifyToken,
+      verifyAdmin,
+      async (req, res) => {
+        const result = await paymentCollection
+          .aggregate([
+            // unwind the desired field and make an object for each item(id) from the field
+            {
+              $unwind: "$menuIds",
+            },
+            /**
+             * matched the unwind items with another collection item(_id) and store them into
+             * a properties (as:"properties_name")
+             * */
+
+            {
+              $lookup: {
+                from: "menu",
+                localField: "menuIds",
+                foreignField: "_id",
+                as: "menuItems",
+              },
+            },
+            // unwind the matched properties
+            {
+              $unwind: "$menuItems",
+            },
+            // group pipeline
+            {
+              $group: {
+                // Make group using field name
+                _id: "$menuItems.category",
+                // Sum of the matched field quantity
+                quantity: { $sum: 1 },
+                revenue: { $sum: "$menuItems.price" },
+              },
+            },
+            // project pipeline for change the field name
+            {
+              $project: {
+                _id: 0,
+                category: "$_id",
+                quantity: "$quantity",
+                revenue: "$revenue",
+              },
+            },
+          ])
+          .toArray();
+        res.send(result);
+      }
+    );
+
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log(
