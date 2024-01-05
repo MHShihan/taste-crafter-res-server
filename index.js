@@ -43,12 +43,12 @@ async function run() {
     const verifyToken = (req, res, next) => {
       // console.log("inside verify token ", req.headers.authorization);
       if (!req.headers.authorization) {
-        return res.status(401).send({ message: "Unauthorized" });
+        return res.status(401).send({ message: "unauthorized access" });
       }
       const token = req.headers.authorization.split(" ")[1];
       jwt.verify(token, secret, (err, decoded) => {
         if (err) {
-          return res.status(401).send({ message: "Unauthorized" });
+          return res.status(401).send({ message: "unauthorized access" });
         }
         req.decoded = decoded;
         next();
@@ -68,11 +68,11 @@ async function run() {
 
     // Admin api
     app.get("/api/v1/admin/:email", verifyToken, async (req, res) => {
-      const email = req.params.email;
+      const email = req?.params?.email;
       if (email !== req.decoded?.email) {
         return res.status(403).send({ message: "forbidden access" });
       }
-      const query = { email };
+      const query = { email: email };
       const user = await userCollection.findOne(query);
       let admin = false;
       if (user) {
@@ -252,7 +252,7 @@ async function run() {
         // Delete each item from the cart
         const query = {
           _id: {
-            $in: paymentInfo?.cartIds?.map((id) => new ObjectId(id)),
+            $in: paymentInfo.cartIds.map((id) => new ObjectId(id)),
           },
         };
 
@@ -263,6 +263,33 @@ async function run() {
         console.log("Payment error", err);
       }
     });
+
+    // Stats or analytics
+    app.get(
+      "/api/v1/admin-stats",
+      verifyToken,
+      verifyAdmin,
+      async (req, res) => {
+        const users = await userCollection.estimatedDocumentCount();
+        const menuItems = await menuCollection.estimatedDocumentCount();
+        const orders = await paymentCollection.estimatedDocumentCount();
+
+        const result = await paymentCollection
+          .aggregate([
+            {
+              $group: {
+                _id: null,
+                totalRevenue: { $sum: "$price" },
+              },
+            },
+          ])
+          .toArray();
+        const revenue = result.length > 0 ? result[0].totalRevenue : 0;
+        const roundedRevenue = parseFloat(revenue.toFixed(2));
+
+        res.send({ users, menuItems, orders, roundedRevenue });
+      }
+    );
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
