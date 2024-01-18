@@ -5,6 +5,14 @@ require("dotenv").config();
 const app = express();
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 
+const formData = require("form-data");
+const Mailgun = require("mailgun.js");
+const mailgun = new Mailgun(formData);
+const mg = mailgun.client({
+  username: "api",
+  key: process.env.MAIL_GUN_API_KEY,
+});
+
 const port = process.env.PORT || 5000;
 const secret = process.env.ACCESS_TOKEN_SECRET;
 
@@ -257,6 +265,24 @@ async function run() {
         };
 
         const deleteResult = await cartCollection.deleteMany(query);
+
+        // Send user email about payment confirmation
+        mg.messages
+          .create(process.env.MAIL_SENDING_DOMAIN, {
+            from: "Mailgun Sandbox <postmaster@sandbox8d80fdd2fd304fe1b566dda3d2d42ad8.mailgun.org>",
+            to: ["mohmodul.no.2@gmail.com"],
+            subject: "Bistro Boss Order Confirmation",
+            text: "Testing some Mailgun awesomness!",
+            html: `
+               <div>
+               <h2>Thank your  for your order</h2>
+               <h4>Your Transaction Id: <strong>${paymentInfo.transactionId}</strong></h4>
+               <p>We would like to get your feedback about the food</p>
+               </div>
+            `,
+          })
+          .then((msg) => console.log(msg)) // logs response data
+          .catch((err) => console.log(err)); // logs any error`;
 
         res.send({ paymentResult, deleteResult });
       } catch (err) {
